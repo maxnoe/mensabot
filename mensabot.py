@@ -11,7 +11,7 @@ from time import sleep
 import sys
 
 Message = namedtuple(
-    'Result', ['chat_id', 'update_id', 'text']
+    'Result', ['chat_id', 'update_id', 'text', 'timestamp']
 )
 
 log = logging.getLogger('mensabot')
@@ -34,6 +34,7 @@ weekdays = [
     'freitag',
 ]
 
+DELTA_T = dt.timedelta(minutes=5)
 URL = 'http://www.stwdo.de/gastronomie/speiseplaene/' \
       'hauptmensa/wochenansicht-hauptmensa'
 
@@ -113,15 +114,16 @@ class MensaBot(Thread):
 
             for message in messages:
                 self.confirm_message(message)
-                if '/menu' in message.text:
-                    menu = self.format_menu(date)
-                    self.send_message(
-                        message.chat_id,
-                        menu,
-                    )
-                    log.info('Send menu for {:%Y-%m-%d} to {}'.format(
-                        date, message.chat_id
-                    ))
+                if dt.datetime.now() - message.timestamp < DELTA_T:
+                    if message.text.startswith('/menu'):
+                        menu = self.format_menu(date)
+                        self.send_message(
+                            message.chat_id,
+                            menu,
+                        )
+                        log.info('Send menu for {:%Y-%m-%d} to {}'.format(
+                            date, message.chat_id
+                        ))
             self.stop_event.wait(1)
 
     def format_menu(self, date):
@@ -154,6 +156,7 @@ class MensaBot(Thread):
                     update_id=update['update_id'],
                     chat_id=chatdata['id'],
                     text=message_data.get('text', ''),
+                    timestamp=dt.datetime.fromtimestamp(message_data['date'])
                 )
                 messages.append(message)
             return messages
