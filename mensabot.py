@@ -24,9 +24,8 @@ stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 log.addHandler(stream_handler)
 
-
 ingredients_re = re.compile('[(].*[)] *')
-weekdays = [
+WEEKDAYS = [
     'montag',
     'dienstag',
     'mittwoch',
@@ -89,7 +88,7 @@ def fetch_weekly_menu():
 
     menu = {
         get_date(soup, weekday): extract_daily_menu(soup, weekday)
-        for weekday in weekdays
+        for weekday in WEEKDAYS
     }
 
     return menu
@@ -127,11 +126,15 @@ class MensaBot(Thread):
             self.stop_event.wait(1)
 
     def format_menu(self, date):
+        # saturday and sunday
+        if date.weekday() >= 5:
+            return 'Am Wochenende bleibt die Mensaküche kalt'
+
         if date not in self.menu:
             self.menu = fetch_weekly_menu()
 
         if date not in self.menu:
-            return 'Sorry, no Menu available for {:%d.%m.%Y}'.format(date)
+            return 'Nix gefunden für den {:%d.%m.%Y}'.format(date)
 
         text = ''
         menu = self.menu[date].query('counter != "Grillstation"')
