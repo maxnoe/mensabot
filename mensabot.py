@@ -100,7 +100,7 @@ class MensaBot(Thread):
     def __init__(self, bot_token):
         self.url = self.url.format(token=bot_token)
         self.stop_event = Event()
-        self.menu = fetch_weekly_menu()
+        self.menu = {}
         super().__init__()
 
     def run(self):
@@ -134,7 +134,10 @@ class MensaBot(Thread):
             return 'Am Wochenende bleibt die Mensaküche kalt'
 
         if date not in self.menu:
-            self.menu = fetch_weekly_menu()
+            try:
+                self.menu = fetch_weekly_menu()
+            except:
+                return 'Kein Menü gefunden'
 
         if date not in self.menu:
             return 'Nix gefunden für den {:%d.%m.%Y}'.format(date)
