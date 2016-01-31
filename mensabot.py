@@ -105,25 +105,28 @@ class MensaBot(Thread):
 
     def run(self):
         while not self.stop_event.is_set():
-            messages = self.getUpdates()
-            now = dt.datetime.now()
-            date = dt.date.today()
-            if now.hour > 15:
-                date += dt.timedelta(days=1)
+            try:
+                messages = self.getUpdates()
+                now = dt.datetime.now()
+                date = dt.date.today()
+                if now.hour > 15:
+                    date += dt.timedelta(days=1)
 
-            for message in messages:
-                self.confirm_message(message)
-                if dt.datetime.now() - message.timestamp < DELTA_T:
-                    if message.text.startswith('/menu'):
-                        menu = self.format_menu(date)
-                        self.send_message(
-                            message.chat_id,
-                            menu,
-                        )
-                        log.info('Send menu for {:%Y-%m-%d} to {}'.format(
-                            date, message.chat_id
-                        ))
-            self.stop_event.wait(1)
+                for message in messages:
+                    if dt.datetime.now() - message.timestamp < DELTA_T:
+                        if message.text.startswith('/menu'):
+                            menu = self.format_menu(date)
+                            self.send_message(
+                                message.chat_id,
+                                menu,
+                            )
+                            log.info('Send menu for {:%Y-%m-%d} to {}'.format(
+                                date, message.chat_id
+                            ))
+                    self.confirm_message(message)
+                self.stop_event.wait(1)
+            except requests.exceptions.RequestException:
+                self.stop_event.wait(30)
 
     def format_menu(self, date):
         # saturday and sunday
