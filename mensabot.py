@@ -126,6 +126,7 @@ class MensaBot(Thread):
                     self.confirm_message(message)
                 self.stop_event.wait(1)
             except requests.exceptions.RequestException:
+                log.exception('Connection Error')
                 self.stop_event.wait(30)
 
     def format_menu(self, date):
@@ -137,6 +138,7 @@ class MensaBot(Thread):
             try:
                 self.menu = fetch_weekly_menu()
             except:
+                log.exception('Parsing Error')
                 return 'Kein Menü gefunden'
 
         if date not in self.menu:
