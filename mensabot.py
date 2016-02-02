@@ -109,7 +109,7 @@ class MensaBot(Thread):
                 messages = self.getUpdates()
                 now = dt.datetime.now()
                 date = dt.date.today()
-                if now.hour > 15:
+                if now.hour >= 15:
                     date += dt.timedelta(days=1)
 
                 for message in messages:
