@@ -24,7 +24,7 @@ stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 log.addHandler(stream_handler)
 
-ingredients_re = re.compile('[(].*[)] *')
+ingredients_re = re.compile('[(]([0-9]+,? ?)+[)] *')
 WEEKDAYS = [
     'montag',
     'dienstag',
