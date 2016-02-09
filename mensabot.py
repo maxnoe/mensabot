@@ -126,7 +126,7 @@ class MensaBot(Thread):
                     self.confirm_message(message)
                 self.stop_event.wait(1)
             except:
-                log.exception()
+                log.exception('Error in run()')
                 self.stop_event.wait(30)
 
     def format_menu(self, date):
