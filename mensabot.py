@@ -1,21 +1,20 @@
 import requests
-import pandas as pd
-from threading import Thread, Event
-import re
-import datetime as dt
-from bs4 import BeautifulSoup
-from copy import copy
 import logging
+from argparse import ArgumentParser
+import re
+from bs4 import BeautifulSoup
 from collections import namedtuple
+from peewee import SqliteDatabase, IntegerField, Model
+import telepot
 from time import sleep
-import sys
-
-Message = namedtuple(
-    'Result', ['chat_id', 'update_id', 'text', 'timestamp']
-)
+from functools import lru_cache
+from datetime import datetime, timedelta
+import pytz
+import schedule
+import dateutil.parser
 
 log = logging.getLogger('mensabot')
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     fmt='%(asctime)s - %(levelname)s - %(name)s | %(message)s',
     datefmt='%H:%M:%S',
@@ -24,183 +23,201 @@ stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 log.addHandler(stream_handler)
 
-ingredients_re = re.compile('[(]([0-9]+,? ?)+[)] *')
-WEEKDAYS = [
-    'montag',
-    'dienstag',
-    'mittwoch',
-    'donnerstag',
-    'freitag',
-]
+ingredients_re = re.compile(' [(](\d+[a-z]*,?)+[)]')
+price_re = re.compile('(\d+),(\d+) €')
 
-DELTA_T = dt.timedelta(minutes=5)
-URL = 'http://www.stwdo.de/gastronomie/speiseplaene/' \
-      'hauptmensa/wochenansicht-hauptmensa'
+URL = 'http://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
+TZ = pytz.timezone('Europe/Berlin')
+
+parserinfo = dateutil.parser.parserinfo(dayfirst=True)
 
 
-def replace_all(regex, string, repl):
-    old = ''
-    while old != string:
-        old = string
-        string = regex.sub(repl, string)
-
-    return string
+parser = ArgumentParser()
+parser.add_argument('bot_token')
 
 
-def get_date(soup, weekday):
-    a = soup.find('a', {'href': '#' + weekday})
-    date = dt.datetime.strptime(a.text.split()[1], '%d.%m.%Y')
-    return dt.date(date.year, date.month, date.day)
+MenuItem = namedtuple(
+    'MenuItem',
+    ['category', 'description', 'supplies', 'p_student', 'p_staff', 'p_guest']
+)
 
 
-def extract_daily_menu(soup, weekday):
-    table_div = soup.find('div', {'id': weekday})
+db = SqliteDatabase('mensabot_clients.sqlite')
 
-    table = table_div.find('table')
-    table = parse_counter(table)
-    menu, = pd.read_html(
-        str(table),
+
+class Client(Model):
+    chat_id = IntegerField(unique=True)
+
+    class Meta:
+        database = db
+
+
+class MenuNotFound(Exception):
+    pass
+
+
+def find_item(soup, cls):
+    return soup.find('div', {'class': 'item {}'.format(cls)})
+
+
+def download_menu_page(day):
+    log.info('Downloading menu')
+
+    ret = requests.post(URL, data={'tx_pamensa_mensa[date]': str(day)})
+    ret.raise_for_status()
+    log.info('Done')
+    return BeautifulSoup(ret.text, 'lxml')
+
+
+def extract_menu_items(soup):
+
+    menu_div = soup.find('div', {'class': 'meals-wrapper'})
+
+    if menu_div is None:
+        raise MenuNotFound
+
+    menu_items = menu_div.find_all('div', {'class': 'meal-item'})
+
+    return list(map(parse_menu_item, menu_items))
+
+
+def parse_price(price_div):
+    m = price_re.search(price_div.text)
+    euros, cents = map(int, m.groups())
+    return euros + cents / 100
+
+
+def parse_menu_item(menu_item):
+
+    category = find_item(menu_item, 'category').find('img')['title']
+    description = find_item(menu_item, 'description').text
+    description = ingredients_re.sub('', description)
+    description = re.sub('(\w),(\w)', r'\1, \2', description)
+
+    supplies = list(map(
+        lambda img: img['title'],
+        find_item(menu_item, 'supplies').find_all('img')
+    ))
+
+    p_student = parse_price(find_item(menu_item, 'price student'))
+    p_staff = parse_price(find_item(menu_item, 'price staff'))
+    p_guest = parse_price(find_item(menu_item, 'price guest'))
+
+    return MenuItem(category, description, supplies, p_student, p_staff, p_guest)
+
+
+@lru_cache(maxsize=10)
+def get_menu(day):
+    soup = download_menu_page(day)
+    items = extract_menu_items(soup)
+    return items
+
+
+def format_menu(menu, full=False):
+
+    if full is False:
+        menu = filter(lambda i: i.category not in ('Grillstation', 'Beilagen'), menu)
+
+    return '\n'.join(
+        '*{item.category}:* {item.description}'.format(item=item)
+        for item in menu
     )
-    menu.columns = ['gericht', 'beschreibung', 'counter']
-    menu['gericht'] = menu.gericht.apply(
-        lambda s: replace_all(ingredients_re, s, '')
-    )
-    menu.dropna(inplace=True)
-    return menu
 
 
-def parse_counter(table):
-    table = copy(table)
-    for a in table.select('a[data-tooltip]'):
-        counter = BeautifulSoup(a.attrs['data-tooltip'], 'html.parser')
-        a.replace_with(counter)
+class MensaBot(telepot.Bot):
 
-    return table
+    def handle(self, msg):
+        content_type, chat_type, chat_id = telepot.glance(msg)
 
+        if chat_type == 'private':
+            start = 'Du bekommst '
+        else:
+            start = 'Ihr bekommt '
 
-def fetch_weekly_menu():
+        if content_type != 'text':
+            return
 
-    ret = requests.get(URL)
-    soup = BeautifulSoup(
-        ret.content.decode('utf-8'),
-        'html.parser',
-    )
+        text = msg['text']
 
-    menu = {
-        get_date(soup, weekday): extract_daily_menu(soup, weekday)
-        for weekday in WEEKDAYS
-    }
+        if text.startswith('/start'):
+            client, new = Client.get_or_create(chat_id=chat_id)
 
-    return menu
+            if new:
+                reply = start + 'ab jetzt jeden Tag um 11 das Menü'
+            else:
+                reply = start + 'das Menü schon!'
 
-
-class MensaBot(Thread):
-    url = 'https://api.telegram.org/bot{token}'
-
-    def __init__(self, bot_token):
-        self.url = self.url.format(token=bot_token)
-        self.stop_event = Event()
-        self.menu = {}
-        super().__init__()
-
-    def run(self):
-        while not self.stop_event.is_set():
+        elif text.startswith('/stop'):
             try:
-                messages = self.getUpdates()
-                now = dt.datetime.now()
-                date = dt.date.today()
-                if now.hour >= 15:
-                    date += dt.timedelta(days=1)
+                client = Client.get(chat_id=chat_id)
+                client.delete_instance()
+                reply = start + 'das Menü ab jetzt nicht mehr'
+            except Client.DoesNotExist:
+                reply = start + 'das Menü doch gar nicht'
 
-                for message in messages:
-                    if dt.datetime.now() - message.timestamp < DELTA_T:
-                        if message.text.startswith('/menu'):
-                            menu = self.format_menu(date)
-                            self.send_message(
-                                message.chat_id,
-                                menu,
-                            )
-                            log.info('Send menu for {:%Y-%m-%d} to {}'.format(
-                                date, message.chat_id
-                            ))
-                    self.confirm_message(message)
-                self.stop_event.wait(1)
-            except:
-                log.exception('Error in run()')
-                self.stop_event.wait(30)
+        elif text.startswith('/menu'):
 
-    def format_menu(self, date):
-        # saturday and sunday
-        if date.weekday() >= 5:
-            return 'Am Wochenende bleibt die Mensaküche kalt'
-
-        if date not in self.menu:
             try:
-                self.menu = fetch_weekly_menu()
-            except:
-                log.exception('Parsing Error')
-                return 'Kein Menü gefunden'
+                dt = dateutil.parser.parse(text.lstrip('/menu '), parserinfo)
+            except ValueError:
+                dt = datetime.now(TZ)
+                if dt.hour >= 15:
+                    dt += timedelta(days=1)
 
-        if date not in self.menu:
-            return 'Nix gefunden für den {:%d.%m.%Y}'.format(date)
+            day = dt.date()
 
-        text = ''
-        menu = self.menu[date].query('counter != "Grillstation"')
-        for row in menu.itertuples():
-            text += '*{}*: {} \n'.format(row.counter, row.gericht)
+            if day.weekday() >= 5:
+                reply = 'Am Wochenende bleibt die Mensaküche kalt'
+            else:
+                try:
+                    menu = get_menu(day)
+                    reply = format_menu(menu)
+                except Exception as e:
+                    log.exception('Error getting menu')
+                    reply = 'Kein Menü gefunden für {}'.format(day)
+        else:
+            reply = 'Das habe ich nicht verstanden'
 
-        return text
+        log.info('Sending message to {}'.format(chat_id))
+        self.sendMessage(chat_id, reply, parse_mode='markdown')
 
-    def terminate(self):
-        self.stop_event.set()
+    def send_menu_to_clients(self):
+        day = datetime.now(TZ).date()
 
-    def getUpdates(self):
-        ret = requests.get(self.url + '/getUpdates', timeout=5).json()
+        if day.weekday() >= 5:
+            return
 
-        if ret['ok']:
-            messages = []
-            for update in ret['result']:
-                message_data = update['message']
-                chatdata = message_data['chat']
-
-                message = Message(
-                    update_id=update['update_id'],
-                    chat_id=chatdata['id'],
-                    text=message_data.get('text', ''),
-                    timestamp=dt.datetime.fromtimestamp(message_data['date'])
-                )
-                messages.append(message)
-            return messages
-
-    def confirm_message(self, message):
-        requests.get(
-            self.url + '/getUpdates',
-            params={'offset': message.update_id + 1},
-            timeout=5,
-        )
-
-    def send_message(self, chat_id, message):
         try:
-            r = requests.post(
-                self.url + '/sendMessage',
-                data={
-                    'chat_id': chat_id,
-                    'text': message,
-                    'parse_mode': 'Markdown'
-                },
-                timeout=5,
-            )
-        except requests.exceptions.Timeout:
-            log.exception('Telegram "send_message" timed out')
-        return r
+            menu = get_menu(str(day))
+            text = format_menu(menu)
+        except Exception as e:
+            log.exception('Error getting menu')
+            text = 'Kein Menü gefunden für {}'.format(day)
+
+        for client in Client.select():
+            log.info('Sending menu to {}'.format(client.chat_id))
+            self.sendMessage(client.chat_id, text)
+
+
+def main():
+    args = parser.parse_args()
+
+    db.create_table(Client, safe=True)
+
+    bot = MensaBot(args.bot_token)
+    bot.message_loop()
+    log.info('Bot runnning')
+
+    schedule.every().day.at("11:00").do(bot.send_menu_to_clients)
+
+    while True:
+        schedule.run_pending()
+        sleep(1)
 
 
 if __name__ == '__main__':
-    bot = MensaBot(sys.argv[1])
-    bot.start()
-    log.info('bot running')
+
     try:
-        while True:
-            sleep(10)
+        main()
     except (KeyboardInterrupt, SystemExit):
-        bot.terminate()
+        log.info('Aborted')
