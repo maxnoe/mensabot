@@ -155,10 +155,13 @@ class MensaBot(telepot.Bot):
             except Client.DoesNotExist:
                 reply = start + 'das Menü doch gar nicht'
 
-        elif text.startswith('/menu'):
+        elif text.startswith('/menu') or text.startswith('/fullmenu'):
+
+            full = text.startswith('/fullmenu')
+            datestring = text.lstrip('/menu ').lstrip('/fullmenu ')
 
             try:
-                dt = dateutil.parser.parse(text.lstrip('/menu '), parserinfo)
+                dt = dateutil.parser.parse(datestring, parserinfo)
             except ValueError:
                 dt = datetime.now(TZ)
                 if dt.hour >= 15:
@@ -171,7 +174,7 @@ class MensaBot(telepot.Bot):
             else:
                 try:
                     menu = get_menu(day)
-                    reply = format_menu(menu)
+                    reply = format_menu(menu, full=full)
                 except Exception as e:
                     log.exception('Error getting menu')
                     reply = 'Kein Menü gefunden für {}'.format(day)
