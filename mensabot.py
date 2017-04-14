@@ -14,18 +14,6 @@ import schedule
 import dateutil.parser
 
 log = logging.getLogger('mensabot')
-log.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    fmt='%(asctime)s|%(levelname)s|%(name)s|%(message)s',
-    datefmt='%Y-%m-$d %H:%M:%S',
-)
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-log.addHandler(stream_handler)
-
-file_handler = logging.FileHandler('mensabot.log')
-file_handler.setFormatter(formatter)
-log.addHandler(file_handler)
 
 ingredients_re = re.compile(' [(](\d+[a-z]*,?)+[)]')
 price_re = re.compile('(\d+),(\d+) €')
@@ -208,6 +196,19 @@ class MensaBot(telepot.Bot):
 
 def main():
     args = parser.parse_args()
+
+    log.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        fmt='%(asctime)s|%(levelname)s|%(name)s|%(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    log.addHandler(stream_handler)
+
+    file_handler = logging.FileHandler('mensabot.log')
+    file_handler.setFormatter(formatter)
+    log.addHandler(file_handler)
 
     db.create_table(Client, safe=True)
 
