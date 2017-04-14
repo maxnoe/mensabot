@@ -162,11 +162,11 @@ class MensaBot(telepot.Bot):
         elif text.startswith('/menu') or text.startswith('/fullmenu'):
 
             full = text.startswith('/fullmenu')
-            datestring = text.lstrip('/menu ').lstrip('/fullmenu ')
 
             try:
+                datestring = text.split()[1]
                 dt = dateutil.parser.parse(datestring, parserinfo)
-            except ValueError:
+            except (ValueError, IndexError):
                 dt = datetime.now(TZ)
                 if dt.hour >= 15:
                     dt += timedelta(days=1)
