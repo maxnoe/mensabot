@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from collections import namedtuple
 from peewee import SqliteDatabase, IntegerField, Model
 import telepot
+from telepot.exception import BotWasBlockedError, BotWasKickedError
 from time import sleep
 from functools import lru_cache
 from datetime import datetime, timedelta
@@ -191,7 +192,10 @@ class MensaBot(telepot.Bot):
 
         for client in Client.select():
             log.info('Sending menu to {}'.format(client.chat_id))
-            self.sendMessage(client.chat_id, text)
+            try:
+                self.sendMessage(client.chat_id, text)
+            except (BotWasBlockedError, BotWasKickedError):
+                client.delete_instance()
 
 
 def main():
@@ -216,7 +220,7 @@ def main():
     bot.message_loop()
     log.info('Bot runnning')
 
-    schedule.every().day.at("11:00").do(bot.send_menu_to_clients)
+    schedule.every().day.at('11:00').do(bot.send_menu_to_clients)
 
     while True:
         schedule.run_pending()
