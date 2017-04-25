@@ -193,7 +193,7 @@ class MensaBot(telepot.Bot):
         for client in Client.select():
             log.info('Sending menu to {}'.format(client.chat_id))
             try:
-                self.sendMessage(client.chat_id, text)
+                self.sendMessage(client.chat_id, text, parse_mode='markdown')
             except (BotWasBlockedError, BotWasKickedError):
                 client.delete_instance()
 
