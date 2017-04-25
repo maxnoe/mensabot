@@ -50,7 +50,7 @@ class MenuNotFound(Exception):
 
 
 def find_item(soup, cls):
-    return soup.find('div', {'class': 'item {}'.format(cls)})
+    return soup.find('div', {'class': re.compile('item {}.*'.format(cls))})
 
 
 def download_menu_page(day):
