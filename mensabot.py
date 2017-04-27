@@ -27,6 +27,7 @@ parserinfo = dateutil.parser.parserinfo(dayfirst=True)
 
 parser = ArgumentParser()
 parser.add_argument('bot_token')
+parser.add_argument('--database', default='mensabot_clients.sqlite')
 
 
 MenuItem = namedtuple(
@@ -35,7 +36,7 @@ MenuItem = namedtuple(
 )
 
 
-db = SqliteDatabase('mensabot_clients.sqlite')
+db = SqliteDatabase(None)
 
 
 class Client(Model):
@@ -200,6 +201,8 @@ class MensaBot(telepot.Bot):
 
 def main():
     args = parser.parse_args()
+
+    db.init(args.database)
 
     log.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
