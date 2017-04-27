@@ -20,7 +20,7 @@ log = logging.getLogger('mensabot')
 ingredients_re = re.compile(' [(](\d+[a-z]*,?)+[)]')
 price_re = re.compile('(\d+),(\d+) €')
 
-URL = 'http://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
+URL = 'https://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
 TZ = pytz.timezone('Europe/Berlin')
 
 parserinfo = dateutil.parser.parserinfo(dayfirst=True)
@@ -57,8 +57,7 @@ def find_item(soup, cls):
 
 def download_menu_page(day):
     log.info('Downloading menu')
-
-    ret = requests.post(URL, data={'tx_pamensa_mensa[date]': str(day)})
+    ret = requests.get(URL, params={'tx_pamensa_mensa[date]': str(day)})
     ret.raise_for_status()
     log.info('Done')
     return BeautifulSoup(ret.text, 'lxml')
