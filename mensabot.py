@@ -1,4 +1,5 @@
 import requests
+import os
 import logging
 from argparse import ArgumentParser
 import re
@@ -202,8 +203,6 @@ class MensaBot(telepot.Bot):
 def main():
     args = parser.parse_args()
 
-    db.init(args.database)
-
     log.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         fmt='%(asctime)s|%(levelname)s|%(name)s|%(message)s',
@@ -217,7 +216,11 @@ def main():
     file_handler.setFormatter(formatter)
     log.addHandler(file_handler)
 
+    db.init(args.database)
     db.create_table(Client, safe=True)
+
+    log.info("Using database {}".format(os.path.abspath(args.database)))
+    log.info("Database contains {} active clients".format(Client.select().count()))
 
     bot = MensaBot(args.bot_token)
     bot.message_loop()
