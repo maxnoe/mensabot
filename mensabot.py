@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import pytz
 import schedule
 import dateutil.parser
+import retrying
 
 log = logging.getLogger('mensabot')
 
@@ -101,6 +102,10 @@ def parse_menu_item(menu_item):
 
 
 @lru_cache(maxsize=10)
+@retrying.retry(
+    stop_max_delay=30000,
+    wait_fixed=2000,
+)
 def get_menu(day):
     soup = download_menu_page(day)
     items = extract_menu_items(soup)
@@ -168,10 +173,14 @@ class MensaBot(telepot.Bot):
             else:
                 try:
                     menu = get_menu(day)
-                    reply = format_menu(menu, full=full)
+                    try:
+                        reply = format_menu(menu, full=full)
+                    except Exception as e:
+                        log.exception('Error formatting menu')
+                        reply = 'Fehler beim formatieren von Tag {}'.format(day)
                 except Exception as e:
                     log.exception('Error getting menu')
-                    reply = 'Kein Menü gefunden für {}'.format(day)
+                    reply = 'Fehler beim herunterladen von Tag {}'.format(day)
         else:
             reply = 'Das habe ich nicht verstanden'
 
