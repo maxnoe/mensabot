@@ -228,7 +228,10 @@ def main():
     schedule.every().day.at('11:00').do(bot.send_menu_to_clients)
 
     while True:
-        schedule.run_pending()
+        try:
+            schedule.run_pending()
+        except:
+            log.exception('Exception during schedule execution')
         sleep(1)
 
 
