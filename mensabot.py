@@ -186,7 +186,6 @@ class MensaBot(telepot.Bot):
 
         elif text.startswith('/menu') or text.startswith('/fullmenu'):
             reply = build_menu_reply(text)
-
         else:
             reply = 'Das habe ich nicht verstanden'
 
@@ -211,6 +210,7 @@ class MensaBot(telepot.Bot):
             try:
                 self.sendMessage(client.chat_id, text, parse_mode='markdown')
             except (BotWasBlockedError, BotWasKickedError):
+                log.warning('Removing client {}'.format(client.chat_id))
                 client.delete_instance()
 
 
