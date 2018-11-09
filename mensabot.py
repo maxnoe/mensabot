@@ -24,9 +24,6 @@ price_re = re.compile(r'(\d+),(\d+) €')
 URL = 'https://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
 TZ = pytz.timezone('Europe/Berlin')
 
-parserinfo = dateutil.parser.parserinfo(dayfirst=True)
-
-
 parser = ArgumentParser()
 parser.add_argument('bot_token')
 parser.add_argument('--database', default='mensabot_clients.sqlite')
@@ -112,15 +109,48 @@ def get_menu(day):
     return items
 
 
-def format_menu(menu, full=False):
+def format_menu(menu, full=False, date=None):
 
     if full is False:
         menu = filter(lambda i: i.category not in ('Grillstation', 'Beilagen'), menu)
+ 
+    title = '*Hauptmensa*'
+    if date is not None:
+        title += ' ({:%d.%m.%Y})'.format(date)
 
-    return '\n'.join(
+    return title + '\n' + '\n'.join(
         '*{item.category}:* {item.description}'.format(item=item)
         for item in menu
     )
+
+
+def build_menu_reply(text):
+    full = text.startswith('/fullmenu')
+
+    try:
+        datestring = text.split()[1]
+        dt = dateutil.parser.parse(datestring)
+    except (ValueError, IndexError):
+        dt = datetime.now(TZ)
+        if dt.hour >= 15:
+            dt += timedelta(days=1)
+
+    day = dt.date()
+
+    if day.weekday() >= 5:
+        return 'Am Wochenende bleibt die Mensaküche kalt'
+
+    try:
+        menu = get_menu(day)
+    except Exception:
+        log.exception('Error getting menu')
+        return 'Fehler beim herunterladen von Tag {}'.format(day)
+
+    try:
+        return format_menu(menu, full=full, date=dt)
+    except Exception:
+        log.exception('Error formatting menu')
+        return 'Fehler beim formatieren von Tag {}'.format(day)
 
 
 class MensaBot(telepot.Bot):
@@ -155,32 +185,8 @@ class MensaBot(telepot.Bot):
                 reply = start + 'das Menü doch gar nicht'
 
         elif text.startswith('/menu') or text.startswith('/fullmenu'):
+            reply = build_menu_reply(text)
 
-            full = text.startswith('/fullmenu')
-
-            try:
-                datestring = text.split()[1]
-                dt = dateutil.parser.parse(datestring, parserinfo)
-            except (ValueError, IndexError):
-                dt = datetime.now(TZ)
-                if dt.hour >= 15:
-                    dt += timedelta(days=1)
-
-            day = dt.date()
-
-            if day.weekday() >= 5:
-                reply = 'Am Wochenende bleibt die Mensaküche kalt'
-            else:
-                try:
-                    menu = get_menu(day)
-                    try:
-                        reply = format_menu(menu, full=full)
-                    except Exception as e:
-                        log.exception('Error formatting menu')
-                        reply = 'Fehler beim formatieren von Tag {}'.format(day)
-                except Exception as e:
-                    log.exception('Error getting menu')
-                    reply = 'Fehler beim herunterladen von Tag {}'.format(day)
         else:
             reply = 'Das habe ich nicht verstanden'
 
@@ -196,7 +202,7 @@ class MensaBot(telepot.Bot):
         try:
             menu = get_menu(str(day))
             text = format_menu(menu)
-        except Exception as e:
+        except Exception:
             log.exception('Error getting menu')
             text = 'Kein Menü gefunden für {}'.format(day)
 
