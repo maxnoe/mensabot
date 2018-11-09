@@ -18,8 +18,8 @@ import retrying
 
 log = logging.getLogger('mensabot')
 
-ingredients_re = re.compile('[(](\d+[a-z]*,?\s*)+[)]')
-price_re = re.compile('(\d+),(\d+) €')
+ingredients_re = re.compile(r'[(](\d+[a-z]*,?\s*)+[)]')
+price_re = re.compile(r'(\d+),(\d+) €')
 
 URL = 'https://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
 TZ = pytz.timezone('Europe/Berlin')
@@ -87,7 +87,7 @@ def parse_menu_item(menu_item):
     category = find_item(menu_item, 'category').find('img')['title']
     description = find_item(menu_item, 'description').text
     description = ingredients_re.sub('', description)
-    description = re.sub('(\w),(\w)', r'\1, \2', description)
+    description = re.sub(r'(\w),(\w)', r'\1, \2', description)
 
     supplies = list(map(
         lambda img: img['title'],
