@@ -18,7 +18,7 @@ import retrying
 
 log = logging.getLogger('mensabot')
 
-ingredients_re = re.compile(' [(](\d+[a-z]*,?)+[)]')
+ingredients_re = re.compile('[(](\d+[a-z]*,?\s*)+[)]')
 price_re = re.compile('(\d+),(\d+) €')
 
 URL = 'https://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
@@ -225,7 +225,7 @@ def main():
     log.addHandler(file_handler)
 
     db.init(args.database)
-    db.create_table(Client, safe=True)
+    Client.create_table(safe=True)
 
     log.info("Using database {}".format(os.path.abspath(args.database)))
     log.info("Database contains {} active clients".format(Client.select().count()))

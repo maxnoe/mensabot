@@ -1,4 +1,9 @@
-requests
-pandas
-beautifulsoup4
 lxml
+requests
+bs4
+peewee
+telepot
+pytz
+schedule
+python-dateutil
+retrying
