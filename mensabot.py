@@ -54,7 +54,7 @@ def find_item(soup, cls):
 
 
 def download_menu_page(day):
-    log.info('Downloading menu')
+    log.info('Downloading menu for day {}'.format(day))
     ret = requests.get(URL, params={'tx_pamensa_mensa[date]': str(day)})
     ret.raise_for_status()
     log.info('Done')
@@ -113,7 +113,7 @@ def format_menu(menu, full=False, date=None):
 
     if full is False:
         menu = filter(lambda i: i.category not in ('Grillstation', 'Beilagen'), menu)
- 
+
     title = '*Hauptmensa*'
     if date is not None:
         title += ' ({:%d.%m.%Y})'.format(date)
@@ -199,11 +199,15 @@ class MensaBot(telepot.Bot):
             return
 
         try:
-            menu = get_menu(str(day))
-            text = format_menu(menu)
+            menu = get_menu(day)
+            text = format_menu(menu, date=day)
         except Exception:
             log.exception('Error getting menu')
             text = 'Kein Menü gefunden für {}'.format(day)
+
+        if not text:
+            text = 'Leeres Menü'
+            log.error('Empty menu {}'.format(menu))
 
         for client in Client.select():
             log.info('Sending menu to {}'.format(client.chat_id))
