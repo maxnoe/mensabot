@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from collections import namedtuple
 from peewee import SqliteDatabase, IntegerField, Model
 import telepot
-from telepot.exception import BotWasBlockedError, BotWasKickedError
+from telepot.exception import BotWasBlockedError, BotWasKickedError, TelegramError
 from time import sleep
 from functools import lru_cache
 from datetime import datetime, timedelta
@@ -216,6 +216,10 @@ class MensaBot(telepot.Bot):
             except (BotWasBlockedError, BotWasKickedError):
                 log.warning('Removing client {}'.format(client.chat_id))
                 client.delete_instance()
+            except TelegramError as e:
+                if e.error_code == 403:
+                    log.warning('Removing client {}'.format(client.chat_id))
+                    client.delete_instance()
 
 
 def main():
