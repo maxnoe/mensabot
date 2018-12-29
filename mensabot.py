@@ -194,7 +194,6 @@ class MensaBot(telepot.Bot):
 
     def send_menu_to_clients(self):
         day = datetime.now(TZ).date()
-        day = datetime.strptime("28.12.2018", "%d.%m.%Y").date()
         
         if day.weekday() >= 5:
             return
