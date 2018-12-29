@@ -194,20 +194,20 @@ class MensaBot(telepot.Bot):
 
     def send_menu_to_clients(self):
         day = datetime.now(TZ).date()
-
+        
         if day.weekday() >= 5:
             return
 
         try:
             menu = get_menu(day)
+            #if parsed menu is empty, we can return and not send empty messages
+            if len(menu) == 0:
+                log.error('Empty menu {}'.format(menu))
+                return
             text = format_menu(menu, date=day)
         except Exception:
             log.exception('Error getting menu')
             text = 'Kein Menü gefunden für {}'.format(day)
-
-        if not text:
-            text = 'Leeres Menü'
-            log.error('Empty menu {}'.format(menu))
 
         for client in Client.select():
             log.info('Sending menu to {}'.format(client.chat_id))
