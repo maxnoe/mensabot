@@ -200,7 +200,7 @@ class MensaBot(telepot.Bot):
 
         try:
             menu = get_menu(day)
-            #if parsed menu is empty, we can return and not send empty messages
+            # if parsed menu is empty, we can return and not send empty messages
             if len(menu) == 0:
                 log.error('Empty menu {}'.format(menu))
                 return
