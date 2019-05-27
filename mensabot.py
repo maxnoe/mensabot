@@ -37,9 +37,9 @@ MenuItem = namedtuple(
 
 
 supplies_emoticons = {
-    'Mit Schweinefleisch': emojize(':pig_face:'),
-    'Mit Rindfleisch': emojize(':cow_face:'),
-    'Mit Geflügel': emojize(':chicken:'),
+    'Mit Schweinefleisch': emojize(':pig:'),
+    'Mit Rindfleisch': emojize(':cow:'),
+    'Mit Geflügel': emojize(':rooster:'),
     'Mit Fisch bzw. Meeresfrüchten': emojize(':fish:'),
     'Ohne Fleisch': emojize(':carrot:'),
     'Vegane Speise': emojize(':deciduous_tree:')
