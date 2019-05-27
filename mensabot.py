@@ -40,7 +40,7 @@ supplies_emoticons = {
     'Mit Schweinefleisch': emojize(':pig_face:'),
     'Mit Rindfleisch': emojize(':cow_face:'),
     'Mit Geflügel': emojize(':chicken:'),
-    'Mit Fisch bzw. Meeresfrüchten': emojize(':dolphin:'),
+    'Mit Fisch bzw. Meeresfrüchten': emojize(':fish:'),
     'Ohne Fleisch': emojize(':carrot:'),
     'Vegane Speise': emojize(':deciduous_tree:')
 }
