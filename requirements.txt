@@ -8,3 +8,4 @@ schedule
 python-dateutil
 retrying
 emoji
+python-dotenv

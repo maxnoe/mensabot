@@ -16,7 +16,10 @@ import schedule
 import dateutil.parser
 import retrying
 from emoji import emojize
+from dotenv import load_dotenv
 
+
+load_dotenv()
 log = logging.getLogger('mensabot')
 
 ingredients_re = re.compile(r'[(](\d+[a-z]*,?\s*)+[)]')
@@ -26,7 +29,6 @@ URL = 'https://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
 TZ = pytz.timezone('Europe/Berlin')
 
 parser = ArgumentParser()
-parser.add_argument('bot_token')
 parser.add_argument('--database', default='mensabot_clients.sqlite')
 
 
@@ -262,7 +264,7 @@ def main():
     log.info("Using database {}".format(os.path.abspath(args.database)))
     log.info("Database contains {} active clients".format(Client.select().count()))
 
-    bot = MensaBot(args.bot_token)
+    bot = MensaBot(os.environ['BOT_TOKEN'])
     bot.message_loop()
     log.info('Bot runnning')
 

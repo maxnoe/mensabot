@@ -1,0 +1,11 @@
+[Unit]
+Description=Mensabot
+After=network.target
+
+[Service]
+ExecStart=/home/maxnoe/mensabot/venv/bin/python mensabot.py --database mensabot_clients.sqlite
+WorkingDirectory=/home/maxnoe/mensabot
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
