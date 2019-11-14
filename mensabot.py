@@ -66,6 +66,10 @@ def find_item(soup, cls):
     return soup.find('div', {'class': re.compile('item {}.*'.format(cls))})
 
 
+@retrying.retry(
+    stop_max_delay=30000,
+    wait_fixed=2000,
+)
 def download_menu_page(day):
     log.info('Downloading menu for day {}'.format(day))
     ret = requests.get(URL, params={'tx_pamensa_mensa[date]': str(day)})
@@ -93,8 +97,12 @@ def parse_price(price_div):
 
 
 def parse_menu_item(menu_item):
+    category_item = find_item(menu_item, 'category').find('img')
+    if category_item is not None:
+        category = category_item['title']
+    else:
+        category = ''
 
-    category = find_item(menu_item, 'category').find('img')['title']
     description = find_item(menu_item, 'description').text.lstrip()
     description = ingredients_re.sub('', description)
     description = re.sub(r'(\w),(\w)', r'\1, \2', description)
@@ -119,10 +127,6 @@ def parse_menu_item(menu_item):
 
 
 @lru_cache(maxsize=10)
-@retrying.retry(
-    stop_max_delay=30000,
-    wait_fixed=2000,
-)
 def get_menu(day):
     soup = download_menu_page(day)
     items = extract_menu_items(soup)
@@ -131,6 +135,7 @@ def get_menu(day):
 
 def format_menu(menu, full=False, date=None):
 
+
     if full is False:
         menu = filter(lambda i: i.category not in ('Grillstation', 'Beilagen'), menu)
 
@@ -138,10 +143,19 @@ def format_menu(menu, full=False, date=None):
     if date is not None:
         title += ' ({:%d.%m.%Y})'.format(date)
 
-    return title + '\n\n' + '\n\n'.join(
-        '*{item.category}* - {item.emoticons}\n{item.description}'.format(item=item)
-        for item in menu
-    )
+    last_category = ''
+
+    items = []
+    for item in menu:
+        category = item.category or last_category
+        last_category = item.category
+        items.append(
+            '*{category}* - {item.emoticons}\n{item.description}'.format(
+                category=category, item=item
+            )
+        )
+
+    return title + '\n\n' + '\n\n'.join(items)
 
 
 def build_menu_reply(text):
