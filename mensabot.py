@@ -105,7 +105,7 @@ def parse_menu_item(menu_item):
 
     description = find_item(menu_item, 'description').text.lstrip()
     description = ingredients_re.sub('', description)
-    description = re.sub(r'(\w),(\w)', r'\1, \2', description)
+    description = re.sub(r'(\w[")]?)\s*,(\w)', r'\1, \2', description)
 
     supplies = list(map(
         lambda img: img['title'],
