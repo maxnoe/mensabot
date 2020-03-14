@@ -172,7 +172,7 @@ def build_menu_reply(text):
     try:
         menu = get_menu(day)
     except Exception:
-        log.exception('Error getting menu')
+        log.error('Error getting menu')
         return 'Fehler beim herunterladen von Tag {}'.format(day)
 
     try:
@@ -180,6 +180,25 @@ def build_menu_reply(text):
     except Exception:
         log.exception('Error formatting menu')
         return 'Fehler beim formatieren von Tag {}'.format(day)
+
+
+def create_message(day):
+    try:
+        menu = get_menu(day)
+    except Exception:
+        log.error('Error getting menu')
+        return 'Fehler beim herunterladen des Menüs für {}'.format(day)
+
+    if len(menu) == 0:
+        log.error('Empty menu {}'.format(menu))
+        return 'Leeres Menü für {}'.format(day)
+
+    try:
+        return format_menu(menu, date=day)
+    except Exception as e:
+        logging.exception('Error formatting menu')
+        return 'Fehler beim formatieren des Menüs für {}'.format(day)
+
 
 
 class MensaBot(telepot.Bot):
@@ -227,17 +246,7 @@ class MensaBot(telepot.Bot):
         if day.weekday() >= 5:
             return
 
-        try:
-            menu = get_menu(day)
-            # if parsed menu is empty, we can return and not send empty messages
-            if len(menu) == 0:
-                log.error('Empty menu {}'.format(menu))
-                return
-            text = format_menu(menu, date=day)
-        except Exception:
-            log.exception('Error getting menu')
-            text = 'Kein Menü gefunden für {}'.format(day)
-
+        text = create_message(day)
         for client in Client.select():
             log.info('Sending menu to {}'.format(client.chat_id))
             try:
@@ -249,6 +258,8 @@ class MensaBot(telepot.Bot):
                 if e.error_code == 403:
                     log.warning('Removing client {}'.format(client.chat_id))
                     client.delete_instance()
+            except Exception as e:
+                logging.exception('Error sending message to client {}'.format(client.chat_id))
 
 
 def main():
