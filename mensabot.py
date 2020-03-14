@@ -107,17 +107,11 @@ def parse_menu_item(menu_item):
     description = ingredients_re.sub('', description)
     description = re.sub(r'(\w[")]?)\s*,(\w)', r'\1, \2', description)
 
-    supplies = list(map(
-        lambda img: img['title'],
-        find_item(menu_item, 'supplies').find_all('img')
-    ))
-
-    emoticons = ''.join(list(map(
-        lambda title: supplies_emoticons[title],
-        filter(
-            lambda title: title in supplies_emoticons,
-            supplies
-    ))))
+    supplies = [
+        img.get('title', '')
+        for img in find_item(menu_item, 'supplies').find_all('img')
+    ]
+    emoticons = ''.join(supplies_emoticons.get(s, '') for s in supplies)
 
     p_student = parse_price(find_item(menu_item, 'price student'))
     p_staff = parse_price(find_item(menu_item, 'price staff'))
